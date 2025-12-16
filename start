@@ -12,7 +12,7 @@ reset="\e[0m"
 
 # Folder bot yang digunakan dan URL repo Anda
 BOT_DIR="/root/bxt"
-REPO_URL="https://github.com/carntech/bxt.git"
+REPO_URL="https://github.com/cxtbw/bxt.git"
 BOT_PORT="50123" # Port aplikasi Express/WebHook
 
 # ========== Remove Previous Bot ==========
