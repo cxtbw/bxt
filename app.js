@@ -328,7 +328,7 @@ ${data.wss_payload || 'T/A'}
 \`\`\`
 
 📅 *Expired:* \`${data.expiration}\`
-✨ By : *TUNNEL FT DOR* ✨
+✨ By : *CARNTECH* ✨
     `.trim();
 } 
                     // --- 2. TEMPLATE UNTUK XRAY (VLESS/VMESS/TROJAN/SHADOWSOCKS) ---
@@ -360,7 +360,7 @@ ${data.link_grpc ? `➡️ gRPC   : \`${data.link_grpc}\`` : ''}
 ${data.link_ws ? `➡️ SS WS  : \`${data.link_ws}\`` : ''}
 
 📅 *Expired:* \`${data.expiration}\`
-✨ By : *TUNNEL FT DOR* ✨
+✨ By : *CARNTECH* ✨
     `.trim();
 }
 
@@ -885,10 +885,8 @@ async function showTrialServerMenu(ctx, jenis) {
 🧪 *Pilih server untuk Trial ${jenis.toUpperCase()} (1 Jam):*
 
 ⚠️ *Perhatian:*
-- Trial hanya aktif selama 1 Jam.
 - Gabung ke reseller untuk menambah kouta trial 10
-- Beli server premium untuk kecepatan yang lebih baik dan stabil.
-- Pilih server di bawah:
+- Beli server premium untuk penggunaan yg lebih baik.
     `.trim();
 
     await ctx.editMessageText(pesan, {
