@@ -254,87 +254,62 @@ async function recordAccountTransaction(userId, type) {
   });
 }
 
-
 function executeScript(scriptType, username, serverId) {
     return new Promise((resolve) => {
-        db.get('SELECT domain, auth FROM Server WHERE id = ?', [serverId], async (err, server) => {
+        db.get('SELECT domain, auth FROM Server WHERE id = ?', [serverId], (err, server) => {
             if (err || !server) {
                 logger.error(`Failed to get server details for ID ${serverId}: ${err ? err.message : 'Not found'}`);
                 return resolve(`❌ GAGAL! Server ID ${serverId} tidak ditemukan atau terjadi kesalahan database.`);
             }
 
+            const scriptName = `trial${scriptType}.sh`;
+            const fullPath = `./scripts/${scriptName}`;
             
-            const trialExp = 1; // <-- Kirim 1 hari (Angka Bulat)
-            const password = username; 
-            const iplimit = 1; // Limit IP untuk Trial
-            const quota = 500; // Quota 500MB (Asumsi API server mengolahnya)
-
-            let endpoint = '';
-            let params = { user: username, exp: trialExp, quota: quota, iplimit: iplimit, auth: server.auth }; 
-
-            switch (scriptType) {
-                case 'ssh':
-                    endpoint = 'createssh';
-                    params.password = password; 
-                    delete params.quota; // API SSH dari createssh.js tidak pakai quota
-                    break;
-                case 'vmess':
-                    endpoint = 'createvmess';
-                    break;
-                case 'vless':
-                    endpoint = 'createvless';
-                    break;
-                case 'trojan':
-                    endpoint = 'createtrojan';
-                    break;
-                case 'shadowsocks':
-                    endpoint = 'createshadowsocks';
-                    break;
-                default:
-                    return resolve('❌ GAGAL! Tipe protokol tidak dikenali.');
-            }
-
-            const url = `http://${server.domain}:5888/${endpoint}`;
-            const queryParams = new URLSearchParams(params).toString();
-            const fullUrl = `${url}?${queryParams}`;
+            // Mengirim username, domain, dan auth ke skrip shell
+            const command = `bash ${fullPath} "${username}" "${server.domain}" "${server.auth}"`;
             
-            logger.info(`Executing TRIAL API call: ${fullUrl}`);
-
-            try {
-                const response = await axios.get(fullUrl, { timeout: 15000 });
-                const data = response.data;
-
-                if (data.status !== 'success' || !data.data) {
-                    return resolve(`❌ GAGAL! API Server (${endpoint}) mengembalikan status gagal: ${data.message || 'Unknown error'}`);
+            logger.info(`Executing script: ${command}`);
+            exec(command, (error, stdout, stderr) => {
+                if (error) {
+                    logger.error(`Script execution error for ${scriptName}: ${error.message}, Stderr: ${stderr}`);
+                    return resolve(`❌ GAGAL! Terjadi kesalahan pada sistem saat membuat akun trial. (Cek log server, error: ${error.message.substring(0, 100)})`);
+                }
+                if (stderr) {
+                    logger.warn(`Script stderr for ${scriptName}: ${stderr}`);
                 }
                 
-                const d = data.data; // Data detail akun dari server API
+                let msg = stdout.trim();
+                
+                try {
+                    const data = JSON.parse(msg);
+                    
+                    if (data.status !== 'success') {
+                        return resolve(`❌ GAGAL! Skrip Trial mengembalikan status gagal: ${data.message || 'Unknown error'}`);
+                    }
+                    
+                    let formattedMsg = '';
 
-                // Menggunakan format yang mirip dengan pesan trial akun lama
-                let formattedMsg = '';
 
-                if (scriptType === 'ssh') {
-                    // Data port hardcoded sesuai output trialssh.sh lama, karena API createssh.js tidak mengembalikannya
-                    let portsData = { 
-                        openssh: "22, 80, 443", dropbear: "443, 109", udp_ssh: "1-65535", dns: "443, 53, 22", 
-                        ssh_ws: "80, 8080", ssh_ssl_ws: "443", ssl_tls: "443", ovpn_ssl: "443", 
-                        ovpn_tcp: "1194", ovpn_udp: "2200", badvpn: "7100, 7300, 7300" 
-                    }; 
+if (data.protocol === 'ssh') {
+    let portsData = data.ports;
+    if (typeof portsData === 'string') {
+        try { portsData = JSON.parse(portsData); } catch (e) { portsData = {}; }
+    }
+    
+    formattedMsg = `
+🔰 *AKUN SSH TRIAL (1 Jam)*
 
-                    formattedMsg = `
-🔰 *AKUN SSH TRIAL | AKTIF 1 HARI*
-
-👤 \`Username:\` \`${d.username}\`
-🔑 \`Password:\` \`${d.password}\`
-🌍 \`IP:\` \`${d.ip}\`
-🏙️ \`Lokasi:\` \`${d.city || 'N/A'}\`
-📡 \`Domain:\` \`${d.domain}\`
-🔐 \`PubKey (SlowDNS):\` \`${d.pubkey || '-'}\`
+👤 \`User:\` \`${data.username}\`
+🔑 \`Pass:\` \`${data.password}\`
+🌍 \`IP:\` \`${data.ip}\`
+🏙️ \`Lokasi:\` \`${data.city}\`
+📡 \`Domain:\` \`${data.domain}\`
+🔐 \`PubKey (SlowDNS):\` \`${data.public_key || '-'}\`
 
 🔌 *PORT*
 OpenSSH   : \`${portsData.openssh || '-'}\`
 Dropbear  : \`${portsData.dropbear || '-'}\`
-PORT UDP   : \`${portsData.udp_ssh || '-'}\`
+UDP SSH   : \`${portsData.udp_ssh || '-'}\`
 DNS       : \`${portsData.dns || '-'}\`
 WS        : \`${portsData.ssh_ws || '-'}\`
 SSL WS    : \`${portsData.ssh_ssl_ws || '-'}\`
@@ -343,58 +318,63 @@ OVPN TCP  : \`${portsData.ovpn_tcp || '-'}\`
 OVPN UDP  : \`${portsData.ovpn_udp || '-'}\`
 OVPN SSL  : \`${portsData.ovpn_ssl || '-'}\`
 BadVPN    : \`${portsData.badvpn || '-'}\`
-Qouta     : *500Mb*
 
-📍 *Gunakan dengan bijak, tidak boleh melebihi batas bandwith*
-🛠 *Gunakan racikan pilot, bug dan metode yang benar agar confignya semakin lancar*
-📅 *Expired:* \`${d.expired}\`
-✨ By : *CARNTECH* ✨
+🔗 *Link*
+OpenVPN Link: \`${data.openvpn_link || '-'}\`
+Save Link: \`${data.save_link || '-'}\`
+Payload WSS: 
+\`\`\`
+${data.wss_payload || 'T/A'}
+\`\`\`
+
+📅 *Expired:* \`${data.expiration}\`
+✨ By : *TUNNEL FT DOR* ✨
     `.trim();
-                } 
-                else { // Logika XRAY (Vmess, Vless, Trojan, Shadowsocks)
-                    // Ambil link dari output API:
-                    const link_tls = d.vmess_tls_link || d.trojan_tls_link;
-                    const link_ntls = d.vmess_nontls_link || d.ss_link_ws;
-                    const link_grpc = d.vmess_grpc_link || d.trojan_grpc_link || d.ss_link_grpc;
-
-                    // Ambil detail tambahan dari output API:
-                    const extraDetails = `
-│🔌 Port HTTP : \`80\`
-│🚪 Path/Service: \`${d.path || d.service_name || 'N/A'}\`
-${d.uuid ? `│🔑 UUID/Pass : \`${d.uuid}\`` : d.password ? `│🔑 UUID/Pass : \`${d.password}\`` : ''}
-${d.alter_id ? `│🔢 AlterID   : \`${d.alter_id}\`` : ''}
-${d.method ? `│🔐 Method    : \`${d.method}\`` : ''}
+} 
+                    // --- 2. TEMPLATE UNTUK XRAY (VLESS/VMESS/TROJAN/SHADOWSOCKS) ---
+                    // app.js (Sekitar baris 486, Template XRay)
+else {
+    // Tentukan apakah perlu menampilkan path/service_name (untuk WS/gRPC)
+    const extraDetails = `
+│🔌 Port HTTP : \`${data.port_http || 'N/A'}\`
+│🚪 Path/Service: \`${data.path || data.service_name || 'N/A'}\`
+${data.alter_id ? `│🔢 AlterID   : \`${data.alter_id}\`` : ''}
+${data.method ? `│🔐 Method    : \`${data.method}\`` : ''}
 `;
 
-                    formattedMsg = `
-🌐 *TRIAL AKUN ${scriptType.toUpperCase()} | AKTIF 1 HARI*
+    formattedMsg = `
+🌐 *TRIAL AKUN ${data.protocol ? data.protocol.toUpperCase() : scriptType.toUpperCase()} (1 Jam)*
 ┌─────────────────────
-│👤 Username : \`${d.username}\`
-│🌐 Domain    : \`${d.domain}\`
-│📍 IP/City   : \`${d.ip} / ${d.city || 'N/A'}\`
-│🔌 Port TLS  : \`443\`
+│👤 Username : \`${data.username}\`
+│🔑 UUID/Pass : \`${data.uuid || data.password}\`
+│🌐 Domain    : \`${data.domain}\`
+│📍 IP/City   : \`${data.ip} / ${data.city}\`
+│🔌 Port TLS  : \`${data.port_tls || '443'}\`
 ${extraDetails.trim()}
 └─────────────────────
 
 🔗 *Link Konfigurasi*
-${link_tls ? `➡️ WS TLS : \`${link_tls}\`` : ''}
-${link_ntls ? `➡️ WS NTLS/SS WS: \`${link_ntls}\`` : ''}
-${link_grpc ? `➡️ gRPC   : \`${link_grpc}\`` : ''}
+${data.link_tls ? `➡️ WS TLS : \`${data.link_tls}\`` : ''}
+${data.link_ntls ? `➡️ WS NTLS: \`${data.link_ntls}\`` : ''}
+${data.link_grpc ? `➡️ gRPC   : \`${data.link_grpc}\`` : ''}
+${data.link_ws ? `➡️ SS WS  : \`${data.link_ws}\`` : ''}
 
-📅 *Expired:* \`${d.expired}\`
-✨ By : *CARNTECH* ✨
+📅 *Expired:* \`${data.expiration}\`
+✨ By : *TUNNEL FT DOR* ✨
     `.trim();
+}
+
+
+                    return resolve(formattedMsg);
+                } catch (e) {
+                    logger.warn(`Trial script output is not valid JSON. Sending raw output. Error: ${e.message}`);
+                    return resolve(`✅ *Trial Akun Berhasil Dibuat!* (1 Jam)\n\n${msg}`);
                 }
-
-                return resolve(formattedMsg);
-
-            } catch (e) {
-                logger.error(`Trial API failed for ${scriptType} on ${server.domain}: ${e.message}`);
-                return resolve(`❌ GAGAL! Gagal menghubungi API server VPN di ${server.domain}:5888. (Error: ${e.message.substring(0, 100)})`);
-            }
+            });
         });
     });
 }
+
 // Keyboard functions 
 function keyboard_nomor() {
   const alphabet = '1234567890'; const buttons = [];
@@ -879,7 +859,7 @@ async function handleTrialMenu(ctx) {
       [{ text: 'Trial Trojan', callback_data: 'trial_select_server_trojan' }, { text: 'Trial Shadowsocks', callback_data: 'trial_select_server_shadowsocks' }],
       [{ text: '🔙 Kembali', callback_data: 'send_main_menu' }]
     ];
-    await ctx.editMessageText('🆓 *Pilih jenis Trial Akun (Masa Aktif 1 Hari):*', {
+    await ctx.editMessageText('🆓 *Pilih jenis Trial Akun (Masa Aktif 1 Jam):*', {
         reply_markup: { inline_keyboard: keyboard },
         parse_mode: 'Markdown'
     });
@@ -902,12 +882,11 @@ async function showTrialServerMenu(ctx, jenis) {
 
 
     const pesan = `
-🧪 *Pilih server untuk Trial ${jenis.toUpperCase()} (1 HARI):*
+🧪 *Pilih server untuk Trial ${jenis.toUpperCase()} (1 Jam):*
 
 ⚠️ *Perhatian:*
-- Trial hanya aktif selama 1 hari dengan speed yang sudah disesuaikan.
-- Hanya bisa membuat trial 1x dalam seminggu.
-- Gabung ke reseller untuk menambah kouta trial 10/7.
+- Trial hanya aktif selama 1 Jam.
+- Gabung ke reseller untuk menambah kouta trial 10
 - Beli server premium untuk kecepatan yang lebih baik dan stabil.
 - Pilih server di bawah:
     `.trim();
@@ -939,31 +918,10 @@ bot.action(/trial_exec_(vmess|vless|trojan|shadowsocks|ssh)_(\d+)/, async (ctx) 
     }
 
     const today = new Date().toISOString().split('T')[0];
+    const isNewDay = user.last_trial_date !== today;
     
-    // --- LOGIKA COOLDOWN 7 HARI ---
-    const lastTrialDate = user.last_trial_date;
-    const oneWeekInMilliseconds = 7 * 24 * 60 * 60 * 1000;
-    
-    let isTrialPeriodExpired = true; 
-    let daysRemaining = 0;
-    
-    if (lastTrialDate) {
-        // Konversi tanggal terakhir trial menjadi timestamp
-        // Catatan: Membuat objek Date dari format YYYY-MM-DD
-        const lastTrialTimestamp = new Date(lastTrialDate).getTime();
-        const nextTrialTimestamp = lastTrialTimestamp + oneWeekInMilliseconds;
-        const nowTimestamp = Date.now();
-        
-        if (nowTimestamp < nextTrialTimestamp) {
-            isTrialPeriodExpired = false; // Belum 7 hari, trial masih diblokir
-            const remainingMs = nextTrialTimestamp - nowTimestamp;
-            // Hitung sisa hari (dibulatkan ke atas agar mencakup hari ini)
-            daysRemaining = Math.ceil(remainingMs / (24 * 60 * 60 * 1000)); 
-        }
-    }
-    
-   
-    if (isTrialPeriodExpired && user.daily_trial_count > 0) {
+    // Reset counter jika hari baru
+    if (isNewDay) {
         await new Promise((resolve, reject) => {
             db.run('UPDATE users SET daily_trial_count = 0, last_trial_date = ? WHERE user_id = ?', [today, userId], (err) => {
                 if (err) return reject(err);
@@ -975,29 +933,22 @@ bot.action(/trial_exec_(vmess|vless|trojan|shadowsocks|ssh)_(\d+)/, async (ctx) 
 
     const maxLimit = user.role === 'reseller' ? RESELLER_TRIAL_LIMIT : MEMBER_TRIAL_LIMIT;
     
-    // Pengecekan utama: Apakah periode cooldown sudah habis?
-    if (!isTrialPeriodExpired) {
-        return ctx.reply(`❌ *Batas Trial Tercapai!* Anda dapat mengambil Trial Akun lagi dalam waktu **${daysRemaining} hari**.`, { parse_mode: 'Markdown' });
+    if (user.daily_trial_count >= maxLimit) {
+        return ctx.reply(`❌ *Batas Akun Trial Harian Tercapai!* Anda telah menggunakan ${user.daily_trial_count} dari ${maxLimit} batas trial harian. Batas akan direset besok.`, { parse_mode: 'Markdown' });
     }
     
-    // Pengecekan limit harian/per-cooldown
-    if (user.daily_trial_count >= maxLimit) {
-        return ctx.reply(`❌ *Batas Trial ${maxLimit} akun sudah tercapai!* Batas Trial Anda akan direset dalam waktu 7 hari.`, { parse_mode: 'Markdown' });
-    }
-    // --- AKHIR LOGIKA COOLDOWN 7 HARI ---
-
 
     const tempUsername = `trial${userId}`; 
 
-    // Eksekusi skrip dengan Server ID (INI HARUSNYA MEMANGGIL API SERVER DI PORT 5888)
-    const msg = await executeScript(type, tempUsername, serverId); 
+    // Eksekusi skrip dengan Server ID
+    const msg = await executeScript(type, tempUsername, serverId); // BARU: Kirim serverId
     
     if (msg.startsWith('❌')) {
       await ctx.reply(msg, { parse_mode: 'Markdown' });
     } else {
+      const today = new Date().toISOString().split('T')[0];
+      // BARU: Catat transaksi (opsional, tetapi baik untuk logging)
       await recordAccountTransaction(userId, `trial_${type}`);
-      
-      // Update daily_trial_count dan last_trial_date (yang sekarang menjadi acuan 7 hari)
       db.run(
         'UPDATE users SET daily_trial_count = daily_trial_count + 1, last_trial_date = ? WHERE user_id = ?',
         [today, userId],
@@ -1005,28 +956,11 @@ bot.action(/trial_exec_(vmess|vless|trojan|shadowsocks|ssh)_(\d+)/, async (ctx) 
           if (err) logger.error('Error updating trial count:', err.message);
         }
       );
-      
-      await ctx.reply(msg, { parse_mode: 'Markdown' }); 
-      
-      // --- AMBIL DETAIL TAMBAHAN ---
-      const serverInfo = await getServerInfo(serverId);
-      
-      const userTag = ctx.from.username ? `@${ctx.from.username}` : ctx.from.id;
-      bot.telegram.sendMessage(GROUP_ID, 
-          `<blockquote>🧪 <b>TRIAL AKUN DIBUAT</b>\n\n` +
-          `👤 User: <b>${userTag}</b>\n` +
-          `📍 ID: <code>${userId}</code>)\n` +
-          `\n✨ Role: <b>${user.role.toUpperCase()}</b>\n` +
-          `🛠 Protokol: <b>${type.toUpperCase()}</b>\n` +
-          `\n🌐 Server: <b>${serverInfo?.nama_server || 'N/A'}</b>\n` +
-          `🔗 Domain: <code>${serverInfo?.domain || 'N/A'}</code>\n` +
-          `\n🗓 Sisa Trial: <b>${maxLimit - (user.daily_trial_count + 1)}</b> dari ${maxLimit} (Reset 7 Hari)\n` +
-          `</blockquote>`,
-          { parse_mode: 'HTML' }
-      ).catch(e => logger.error(`Failed to notify admin group about trial: ${e.message}`));
+      await ctx.reply(msg, { parse_mode: 'Markdown' });
     }
 
 });
+
 // --- FUNGSI TAMPILAN SERVER (CREATE/RENEW) ---
 async function startSelectServer(ctx, action, type, page = 0) {
   try {
