@@ -17,8 +17,11 @@ if [ ! -f "/etc/xray/vless/config.json" ]; then
   echo '{"clients":[]}' > /etc/xray/vless/config.json
 fi
 
-tmpfile=$(mktemp)
-jq --arg uuid "$uuid" --arg email "$user" '.clients += [{"id": $uuid, "flow": "", "email": $email}]' /etc/xray/vless/config.json > "$tmpfile" && mv "$tmpfile" /etc/xray/vless/config.json
+sed -i '/#vless$/a\### '"$user $exp"'\
+},{"id": "'"$uuid"'","alterId": 0,"email": "'"$user"'"' /etc/xray/vless/config.json
+
+sed -i '/#vlessgrpc$/a\### '"$user $exp"'\
+},{"id": "'"$uuid"'","alterId": 0,"email": "'"$user"'"' /etc/xray/vless/config.json
 
 # Auto remove after expiry
 tmux new-session -d -s "trial_vless_$user" "sleep $((duration * 60)); sed -i '/$user/d' /etc/xray/vless/config.json; systemctl restart vless@config"
@@ -28,7 +31,9 @@ systemctl restart vless@config
 
 # === Generate VLESS links
 vless_tls="vless://${uuid}@${domain}:443?path=/whatever/vless&security=tls&encryption=none&host=${domain}&type=ws#${user}-WS-TLS"
+
 vless_non="vless://${uuid}@${domain}:80?path=/whatever/vless&encryption=none&host=${domain}&type=ws#${user}-WS-NTLS"
+
 vless_grpc="vless://${uuid}@${domain}:443?mode=gun&security=tls&encryption=none&type=grpc&serviceName=vless-grpc&sni=${domain}#${user}-gRPC"
 
 # === Output JSON Satu Baris Aman ke Bot
