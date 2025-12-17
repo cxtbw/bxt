@@ -46,7 +46,7 @@ const RESELLER_DISCOUNT_PERCENT = vars.RESELLER_DISCOUNT_PERCENT || 40;
 
 // Variabel Batasan (Limit)
 const TRIAL_EXPIRY_HOURS = vars.TRIAL_EXPIRY_HOURS || 1;
-const MEMBER_TRIAL_LIMIT = vars.MEMBER_TRIAL_LIMIT || 1;
+const MEMBER_TRIAL_LIMIT = vars.MEMBER_TRIAL_LIMIT || 100;
 const RESELLER_TRIAL_LIMIT = vars.RESELLER_TRIAL_LIMIT || 10;
 
 // --- KONFIGURASI BARU: CASHBACK (HARDCODED) ---
@@ -731,13 +731,13 @@ async function sendMainMenu(ctx) {
 - Host Cloudfront Terbaru :
   (Sedang Tidak Tersedia)
 
-- Cashback Setiap TopUp (OFF) ${CASHBACK_VALUE}%!`; 
+- Bonus Setiap TopUp (LOW) ${CASHBACK_VALUE}%!`; 
       } else if (CASHBACK_TYPE === 'FIXED') {
           cashbackInfo = `<b>NEW INFO:</b>\n 
 - Host Cloudfront Terbaru :
   (Sedang Tidak Tersedia)
 
-- Cashback Setiap TopUp  (OFF) Rp${CASHBACK_VALUE.toLocaleString('id-ID')}!`;
+- Bonus Setiap TopUp  (LOW) Rp${CASHBACK_VALUE.toLocaleString('id-ID')}!`;
       }
   }
 // ...
@@ -955,10 +955,36 @@ bot.action(/trial_exec_(vmess|vless|trojan|shadowsocks|ssh)_(\d+)/, async (ctx) 
         }
       );
       await ctx.reply(msg, { parse_mode: 'Markdown' });
-    }
+      // --- AMBIL DETAIL TAMBAHAN ---
+          const user = await getUserDetails(ctx.from.id);
+          
+          const serverInfo = await getServerInfo(serverId);
 
-});
+          const userTag = ctx.from.username ? `@${ctx.from.username}` : ctx.from.id;
+          
+            const todayStart = new Date(new Date().getFullYear(), new Date().getMonth(), new Date().getDate()).getTime();
+            
+            const globalToday = await new Promise(resolve => db.get('SELECT COUNT(*) as count FROM transactions WHERE timestamp >= ? AND type IN ("ssh","vmess","vless","trojan","shadowsocks")', [todayStart], (err, row) => resolve(row ? row.count : 0)));
+            
+            const userToday = await new Promise(resolve => db.get('SELECT COUNT(*) as count FROM transactions WHERE user_id = ? AND timestamp >= ? AND type IN ("ssh","vmess","vless","trojan","shadowsocks")', [ctx.from.id, todayStart], (err, row) => resolve(row ? row.count : 0)));
 
+            bot.telegram.sendMessage(GROUP_ID, 
+                `<blockquote>🛒 <b>TRIAL AKUN</b>\n\n` +
+                `👤 User: <b>${userTag}</b> (ID: <code>${ctx.from.id}</code>)\n` +
+               `✨ Role: <b>${user.role.toUpperCase()}</b>\n` +
+                `🛠 Action: <b>${type.toUpperCase()}</b>\n` +
+              `🌐 Server: <b>${serverInfo?.nama_server || 'N/A'}</b>\n` +
+                `🔗 Domain: <code>${serverInfo?.domain || 'N/A'}</code>\n` +
+               `📈 Transaksi User Hari Ini: <b>${userToday}</b>\n` +
+                `📊 Transaksi Global Hari Ini: <b>${globalToday}</b>\n` +
+                `</blockquote>`,
+                { parse_mode: 'HTML' }
+            ).catch(e => logger.error(`Failed to notify admin group about ${action}: ${e.message}`));
+            delete userState[ctx.chat.id];
+          
+          }
+        });
+  
 // --- FUNGSI TAMPILAN SERVER (CREATE/RENEW) ---
 async function startSelectServer(ctx, action, type, page = 0) {
   try {
@@ -1025,7 +1051,7 @@ bot.action('service_create', async (ctx) => {
       [{ text: 'Buat Vmess', callback_data: 'create_vmess' }, { text: 'Buat Vless', callback_data: 'create_vless' }],
       [{ text: 'Buat Trojan', callback_data: 'create_trojan' }, { text: 'Buat Shadowsocks', callback_data: 'create_shadowsocks' }],
       [{ text: '🔙 Kembali', callback_data: 'send_main_menu' }]];
-    await ctx.editMessageText('➕ *Pilih jenis akun yang ingin Anda buat, NOTE : Jika user yg anda ketik  sudah terdaftar maka otomatis akan ditambahkan random huruf diawal, contoh ( jono ) jadi (gcRvjono) :*', { reply_markup: { inline_keyboard: keyboard }, parse_mode: 'Markdown' });
+    await ctx.editMessageText('➕ *Pilih jenis akun, ⚠️ NOTE : Jika user yg anda ketik  sudah terdaftar maka otomatis akan ditambahkan random huruf diawal oleh server, contoh : ( jono ) jadi ( gcRvjono ):*', { reply_markup: { inline_keyboard: keyboard }, parse_mode: 'Markdown' });
 });
 bot.action('service_renew', async (ctx) => {
     await ctx.answerCbQuery();
@@ -1033,7 +1059,7 @@ bot.action('service_renew', async (ctx) => {
       [{ text: 'Perpanjang Vmess', callback_data: 'renew_vmess' }, { text: 'Perpanjang Vless', callback_data: 'renew_vless' }],
       [{ text: 'Perpanjang Trojan', callback_data: 'renew_trojan' }, { text: 'Perpanjang Shadowsocks', callback_data: 'renew_shadowsocks' }],
       [{ text: '🔙 Kembali', callback_data: 'send_main_menu' }]];
-    await ctx.editMessageText('♻️ *Pilih jenis Akun yg akan diperpanjang. NOTE : Masukan username harus tepat dg akun yg akan diperpanjang. Teliti dan cek lagi username sebelum di konfirmasi. :*', { reply_markup: { inline_keyboard: keyboard }, parse_mode: 'Markdown' });
+    await ctx.editMessageText('♻️ *Pilih jenis Akun. ⚠️ NOTE : Masukan username harus tepat dg akun yg akan diperpanjang. Teliti dan cek lagi username sebelum di konfirmasi. :*', { reply_markup: { inline_keyboard: keyboard }, parse_mode: 'Markdown' });
 });
 
 bot.action(/Maps_(\w+)_(\w+)_(\d+)/, async (ctx) => {
