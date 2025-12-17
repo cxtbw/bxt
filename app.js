@@ -1051,15 +1051,25 @@ bot.action('service_create', async (ctx) => {
       [{ text: 'Buat Vmess', callback_data: 'create_vmess' }, { text: 'Buat Vless', callback_data: 'create_vless' }],
       [{ text: 'Buat Trojan', callback_data: 'create_trojan' }, { text: 'Buat Shadowsocks', callback_data: 'create_shadowsocks' }],
       [{ text: '🔙 Kembali', callback_data: 'send_main_menu' }]];
-    await ctx.editMessageText('➕ *Pilih jenis akun, ⚠️ NOTE : Jika user yg anda ketik  sudah terdaftar maka otomatis akan ditambahkan random huruf diawal oleh server, contoh : ( jono ) jadi ( gcRvjono ):*', { reply_markup: { inline_keyboard: keyboard }, parse_mode: 'Markdown' });
+      
+    await ctx.editMessageText(`➕ *Pilih jenis akun.
+
+⚠️ PERHATIAN :
+Jika user yg anda ketik  sudah terdaftar maka otomatis akan ditambahkan random huruf diawal oleh server.
+  Contoh : ( jono ) jadi ( gcRvjono )*`, { reply_markup: { inline_keyboard: keyboard }, parse_mode: 'Markdown' });
 });
+
 bot.action('service_renew', async (ctx) => {
     await ctx.answerCbQuery();
     const keyboard = [[{ text: 'Perpanjang SSH', callback_data: 'renew_ssh' }],
       [{ text: 'Perpanjang Vmess', callback_data: 'renew_vmess' }, { text: 'Perpanjang Vless', callback_data: 'renew_vless' }],
       [{ text: 'Perpanjang Trojan', callback_data: 'renew_trojan' }, { text: 'Perpanjang Shadowsocks', callback_data: 'renew_shadowsocks' }],
       [{ text: '🔙 Kembali', callback_data: 'send_main_menu' }]];
-    await ctx.editMessageText('♻️ *Pilih jenis Akun. ⚠️ NOTE : Masukan username harus tepat dg akun yg akan diperpanjang. Teliti dan cek lagi username sebelum di konfirmasi. :*', { reply_markup: { inline_keyboard: keyboard }, parse_mode: 'Markdown' });
+      
+   await ctx.editMessageText(`♻️ *Pilih jenis Akun. 
+  
+ ⚠️ PERHATIAN :
+ Masukan username harus tepat dg akun yg akan diperpanjang. Teliti dan cek lagi username sebelum di konfirmasi.*`, { reply_markup: { inline_keyboard: keyboard }, parse_mode: 'Markdown' });
 });
 
 bot.action(/Maps_(\w+)_(\w+)_(\d+)/, async (ctx) => {
@@ -1564,7 +1574,8 @@ async function sendAdminMenu(ctx) {
     [{ text: '🔢 Edit Batas Create', callback_data: 'editserver_batas_create_akun' }, { text: '🔢 Edit Total Create', callback_data: 'editserver_total_create_akun' }],
     [{ text: '💵 Tambah Saldo Manual', callback_data: 'addsaldo_user' }, { text: '📋 List Server', callback_data: 'listserver' }],
     [{ text: '📢 Broadcast Pesan', callback_data: 'admin_broadcast_message' }, { text: 'ℹ️ Detail Server', callback_data: 'detailserver' }],
-    [{ text: '♻️ Reset Server', callback_data: 'resetdb' }, { text: '🔙 Kembali', callback_data: 'send_main_menu' }]
+    [{ text: '♻️ Reset Server', callback_data: 'resetdb' }, { text: 'ℹ️ List user', callback_data: 'detailuser' }],
+    [{ text: '🔙 Kembali', callback_data: 'send_main_menu' }]
   ];
   
   const messageText = `
@@ -1745,7 +1756,6 @@ bot.action('listserver', async (ctx) => {
         ctx.reply(`📋 *List Server Singkat:*\n\n${list}`, { parse_mode: 'Markdown' });
     });
 });
-
 
 bot.action(/edit_harga_(\d+)/, async (ctx) => { const serverId = ctx.match[1]; userState[ctx.chat.id] = { step: 'edit_harga', serverId: serverId, amount: '' }; await ctx.reply('💰 *Silakan masukkan harga server baru (angka saja):*', { reply_markup: { inline_keyboard: keyboard_nomor() }, parse_mode: 'Markdown' }); });
 bot.action(/edit_nama_(\d+)/, async (ctx) => { const serverId = ctx.match[1]; userState[ctx.chat.id] = { step: 'edit_nama', serverId: serverId, name: '' }; await ctx.reply('🏷️ *Silakan masukkan nama server baru:*', { reply_markup: { inline_keyboard: keyboard_abc() }, parse_mode: 'Markdown' }); });
