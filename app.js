@@ -26,7 +26,7 @@ const vars = JSON.parse(fs.readFileSync('./.vars.json', 'utf8'));
 
 // Variabel Bot dan Aplikasi
 const BOT_TOKEN = vars.BOT_TOKEN;
-const port = vars.PORT || 50123;
+const port = vars.PORT || 50124;
 const ADMIN_RAW = vars.USER_ID;
 const GROUP_ID = vars.GROUP_ID;
 const CHANNEL_USERNAME = vars.CHANNEL_USERNAME;
