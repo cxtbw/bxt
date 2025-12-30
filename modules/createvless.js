@@ -3,7 +3,7 @@ const sqlite3 = require('sqlite3').verbose();
 const db = new sqlite3.Database('./sellvpn.db');
 
 // ✅ CREATE VLESS
-async function createvless(username, exp, quota, limitip, serverId) {
+async function createvless(bot, GROUP_ID, username, exp, quota, limitip, serverId) {
   console.log(`⚙️ Creating VLESS for ${username} | Exp: ${exp} | Quota: ${quota} GB | IP Limit: ${limitip}`);
 
   if (/\s/.test(username) || /[^a-zA-Z0-9]/.test(username)) {
@@ -71,7 +71,17 @@ ${d.vless_grpc_link}
         resolve(msg);
 
       } catch (e) {
-        resolve('❌ Tidak bisa menghubungi server.');
+ 
+      const errMsg = 
+	  '❌ Mff Server sedang OFFLINE atau Maintenance, \n' +
+	  'silahkan coba beberapa saat lagi.\n\n' +
+	  'NOTE: Jangan hawatir saldo Anda sedang diproses untuk dikembalikan.';
+        if (bot && GROUP_ID) {
+          bot.telegram.sendMessage(GROUP_ID, `❌ Mff Server sedang OFFLINE atau Maintenance: ${e.message}`, { parse_mode: 'Markdown' });
+        }
+        resolve(errMsg);
+  
+  
       }
     });
   });

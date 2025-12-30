@@ -2,7 +2,7 @@ const axios = require('axios');
 const sqlite3 = require('sqlite3').verbose();
 const db = new sqlite3.Database('./sellvpn.db');
 
-async function createssh(username, password, exp, iplimit, serverId) {
+async function createssh(bot, GROUP_ID, username, password, exp, iplimit, serverId) {
   console.log(`⚙️ Creating SSH for ${username} | Exp: ${exp} | IP Limit: ${iplimit}`);
 
   if (/\s/.test(username) || /[^a-zA-Z0-9]/.test(username)) {
@@ -21,7 +21,7 @@ async function createssh(username, password, exp, iplimit, serverId) {
         if (data.status !== 'success') return resolve(`❌ Gagal: ${data.message}`);
 
         const d = data.data;
-
+      
         const msg = `
         🔥 *AKUN SSH PREMIUM* 
 
@@ -59,10 +59,22 @@ https://${d.domain}:81/ssh-${d.username}.txt
 └─────────────────────
 ✨ By : *CARNTECH* ✨
 `.trim();
-
-        resolve(msg);
+                
+       resolve(msg);
+	   
+	   
       } catch (e) {
-        resolve('❌ Gagal request ke API SSH.');
+ 
+      const errMsg = 
+	  '❌ Mff Server sedang OFFLINE atau Maintenance, \n' +
+	  'silahkan coba beberapa saat lagi.\n\n' +
+	  'NOTE: Jangan hawatir saldo Anda sedang diproses untuk dikembalikan.';
+        if (bot && GROUP_ID) {
+          bot.telegram.sendMessage(GROUP_ID, `❌ Mff Server sedang OFFLINE atau Maintenance: ${e.message}`, { parse_mode: 'Markdown' });
+        }
+        resolve(errMsg);
+  
+  
       }
     });
   });
