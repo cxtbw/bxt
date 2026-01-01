@@ -41,7 +41,7 @@ const PAKASIR_BASE_URL = vars.PAKASIR_BASE_URL;
 // Variabel Bisnis/Angka
 const NAMA_STORE = vars.NAMA_STORE;
 const MIN_DEPOSIT_AMOUNT = vars.MIN_DEPOSIT_AMOUNT || 1000;
-const RESELLER_PRICE = vars.RESELLER_PRICE || 30000;
+const RESELLER_PRICE = vars.RESELLER_PRICE || 40000;
 const RESELLER_DISCOUNT_PERCENT = vars.RESELLER_DISCOUNT_PERCENT || 40;
 
 // Variabel Batasan (Limit)
@@ -95,6 +95,8 @@ const { renewvmess } = require('./modules/renewvmess');
 const { renewvless } = require('./modules/renewvless');
 const { renewtrojan } = require('./modules/renewtrojan');
 //const { renewshadowshocks } = require('./modules/renewSHADOWSOCKS'); 
+
+const { checkSshPort } = require('./utils/checkSshPort');
 
 // --- FIX AKHIR: Mengkonversi ID Admin ke Integer Array dengan aman ---
 let adminIds = [];
@@ -761,13 +763,11 @@ async function sendMainMenu(ctx) {
       if (CASHBACK_TYPE === 'PERCENT') {
           // TAG B/ YANG SALAH DIGANTI DENGAN TAG B PENUTUP YANG BENAR </b>
           cashbackInfo = `<b>NEW INFO:</b>\n 
-- Host Cloudfront Terbaru :
-  (Sedang Tidak Tersedia)
+- Maaf berhubung ada perbaikan dari Database ,maka bot akan dialihkan ke metode baru, jangan hawatir akun yang telah dibuat akan aktif sesuai masa aktif. Bot Metode baru di desain biar lebih praktis. Setelah fix semuanya akan ada penambahan server² lain.
 - Bonus Cashback TopUp (LOW) ${CASHBACK_VALUE}%!`; 
       } else if (CASHBACK_TYPE === 'FIXED') {
-          cashbackInfo = `<b>NEW INFO:</b>\n 
-- Host Cloudfront Terbaru :
-  (Sedang Tidak Tersedia)
+          cashbackInfo = `<b>NEW INFO:</b>\n
+- Maaf berhubung ada perbaikan dari Database ,maka bot akan dialihkan ke metode baru, jangan hawatir akun yang telah dibuat akan aktif sesuai masa aktif. Bot Metode baru di desain biar lebih praktis. Setelah fix semuanya akan ada penambahan server² lain.
 - Bonus Cashback TopUp (LOW) Rp${CASHBACK_VALUE.toLocaleString('id-ID')}!`;
       }
   }
@@ -793,7 +793,8 @@ Saldo: <code>Rp ${saldo.toLocaleString('id-ID')}</code>
 </blockquote>
 <blockquote>${cashbackInfo}</blockquote>
 ────────────────────────
-    Admin : @carntech
+  Admin : @carntech
+  MASUK BOT ke 2: @CARNTECHxBOT
 ────────────────────────`;
 
   let resellerButton = (role === 'reseller')
@@ -909,15 +910,31 @@ async function showTrialServerMenu(ctx, jenis) {
     }]);
 
     keyboard.push([{ text: '⬅️ Kembali', callback_data: 'trial_account' }]);
+	
+   const VPS_LIST = [
+  { name: 'SERVER 1 (ID)', host: 'i3.carntech.biz.id' },
+  { name: 'SERVER 2 (SG) ', host: 'sg.cartech.biz.id' }
+ ];
+   const results = await Promise.all(
+  VPS_LIST.map(vps =>
+    checkSshPort(vps.host).then(isOnline => ({
+      ...vps,
+      isOnline
+    }))
+  )
+  );
 
+   let pesan = `🧪 *Pilih server untuk Trial ${jenis.toUpperCase()} (1 Jam):*\n\n`;
+pesan += `🖥️ *Status VPS*\n\n`;
 
-    const pesan = `
-🧪 *Pilih server untuk Trial ${jenis.toUpperCase()} (1 Jam):*
+// tampilkan status tiap VPS
+for (const vps of results) {
+  const icon = vps.isOnline ? '🟢' : '🔴';
+  const status = vps.isOnline ? 'ONLINE' : 'OFFLINE';
 
-⚠️ *Perhatian:*
-- Gabung ke reseller untuk menambah kouta trial 10
-- Beli server premium untuk penggunaan yg lebih baik.
-    `.trim();
+  pesan += `${icon} *${vps.name}*\nStatus: ${status}\n\n`;
+}
+ pesan = pesan.trim();
 
     await ctx.editMessageText(pesan, {
       parse_mode: 'Markdown',
@@ -1204,6 +1221,8 @@ bot.action(/create_pakasir_payment_(\d+)/, async (ctx) => {
 
         const message =
             `✅ *PEMBAYARAN QRIS TERSEDIA*\n\n` +
+            `*MOHON TETAP PADA HALAMAN INI SAAT PROSES TRANSAKSI*\n` +
+             `*KLIK TOMBOL KONFIRMASI DIBAWAH JIKA SUDAH TRANSFER*\n\n` +
            // `⚠️* PEMBAYARAN JANGAN LEBIH DARI 1 Ribu ! SEBAB BOT MASIH DISEDIAKAN MODE GRATIS SALDO ! TAPI Kalo maksa input 1rb Ya Gapapa itung² sedekah 🤩 *\n\n` +
             `Invoice ID: \`${orderId}\`\n` +
             `Nominal: *Rp ${amount.toLocaleString('id-ID')}* (+Biaya Admin)\n` +
@@ -1690,44 +1709,85 @@ async function sendAdminMenu(ctx) {
 
 // --- LOGIKA BROADCAST BARU ---
 bot.action('admin_broadcast_message', async (ctx) => {
-    await ctx.answerCbQuery();
-    if (!adminIds.includes(ctx.from.id)) { return ctx.reply('🚫 Anda tidak memiliki izin.'); }
-    
-    userState[ctx.chat.id] = { step: 'admin_broadcast_input' };
-    
-    const message = `
-📢 *INFO*
+  await ctx.answerCbQuery();
 
-Silakan kirimkan pesan yang ingin Anda siarkan (broadcast) ke *SEMUA* pengguna bot. Pesan ini akan dikirim dengan format *HTML*.
-
-*PERHATIAN:* Pesan ini akan dikirim ke *${await dbAllAsync('SELECT COUNT(*) as count FROM users').then(r => r[0].count)}* pengguna. Gunakan dengan bijak.
-    `;
-    
-    await ctx.reply(message, { 
-        parse_mode: 'Markdown', 
-        reply_markup: { inline_keyboard: [[{ text: '❌ Batalkan', callback_data: 'admin_menu' }]] }
-    });
-});
-// Fungsi Eksekusi Broadcast (dipanggil dari bot.on('text'))
-async function executeBroadcast(ctx, message) {
-    if (!adminIds.includes(ctx.from.id)) { return ctx.reply('🚫 Anda tidak memiliki izin.'); }
-    
-    const users = await dbAllAsync("SELECT user_id FROM users");
-    let successCount = 0;
-    
-    for (const row of users) {
-        try {
-            await bot.telegram.sendMessage(row.user_id, message, { parse_mode: 'HTML' });
-            successCount++;
-        } catch (error) { 
-            logger.error(`⚠️ Kesalahan saat mengirim broadcast ke ${row.user_id}: ${error.message}`);
-          
-        }
-    }
-              
-    ctx.reply(`✅ Pesan siaran berhasil dikirim ke ${successCount} pengguna dari total ${users.length}.`);
-    delete userState[ctx.chat.id];
+  if (!adminIds.includes(ctx.from.id)) {
+    return ctx.reply('🚫 Anda tidak memiliki izin.');
   }
+
+  userState[ctx.chat.id] = { step: 'admin_broadcast_input' };
+
+  const totalUser = await dbAllAsync(
+    'SELECT COUNT(*) as count FROM users'
+  ).then(r => r[0].count);
+
+  await ctx.reply(
+`📢 <b>PENAWARAN BROADCAST</b>
+
+Silakan kirimkan pesan yang ingin Anda siarkan ke <b>SEMUA</b> pengguna bot.
+Pesan akan dikirim menggunakan format <b>HTML</b>.
+
+⚠️ Akan dikirim ke <b>${totalUser}</b> pengguna.`,
+    {
+      parse_mode: 'HTML',
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: '❌ Batalkan', callback_data: 'admin_menu' }]
+        ]
+      }
+    }
+  );
+});
+
+
+// Fungsi Eksekusi Broadcast (dipanggil dari bot.on('text'))
+const delay = ms => new Promise(r => setTimeout(r, ms));
+
+async function executeBroadcast(ctx, message) {
+  if (!adminIds.includes(ctx.from.id)) {
+    return ctx.reply('🚫 Anda tidak memiliki izin.');
+  }
+
+  if (!message || message.trim() === '') {
+    return ctx.reply('❌ Pesan broadcast tidak boleh kosong.');
+  }
+
+  const users = await dbAllAsync("SELECT user_id FROM users");
+
+  let successCount = 0;
+  let failedCount = 0;
+
+  await ctx.reply(`🚀 Broadcast dimulai ke ${users.length} pengguna...`);
+
+  for (const { user_id } of users) {
+    try {
+      await bot.telegram.sendMessage(user_id, message, {
+        parse_mode: 'HTML',
+        disable_web_page_preview: true
+      });
+
+      successCount++;
+      await delay(1000); // aman untuk ratusan user
+
+    } catch (error) {
+      failedCount++;
+      logger.error(
+        `⚠️ Gagal kirim ke ${user_id}: ${error.message}`
+      );
+    }
+  }
+
+  await ctx.reply(
+`✅ Broadcast selesai
+
+📨 Berhasil: ${successCount}
+❌ Gagal: ${failedCount}
+👥 Total: ${users.length}`
+  );
+
+  delete userState[ctx.chat.id];
+}
+
 
 // --- CRUD SERVER ACTIONS ---
 bot.action('admin_menu', async (ctx) => {
